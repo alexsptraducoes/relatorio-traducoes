@@ -23,9 +23,13 @@ module.exports = async function handler(req, res) {
     }
 
     const [y, m, d] = targetDate.split('-').map(Number);
-    // Try both: stored as local time (no UTC offset)
-    const startUTC = `${targetDate}T00:00:00`;
-    const endUTC = `${targetDate}T23:59:59`;
+    // Data salva em UTC. Brasil = UTC-3
+    // Para pegar dia 12/06 SP: buscar de 12/06 00:00 SP = 12/06 03:00 UTC
+    //                          até 12/06 23:59 SP = 13/06 02:59 UTC
+    const startUTC = new Date(Date.UTC(y, m-1, d, 3, 0, 0));
+    const endUTC = new Date(Date.UTC(y, m-1, d+1, 2, 59, 59));
+    const startStr = startUTC.toISOString();
+    const endStr = endUTC.toISOString();
 
     // Fetch all translations with pagination
     let translations = [];
@@ -34,8 +38,8 @@ module.exports = async function handler(req, res) {
       const { data, error } = await supa
         .from('translations')
         .select('*, users(name, email)')
-        .gte('translated_at', startUTC)
-        .lte('translated_at', endUTC)
+        .gte('translated_at', startStr)
+        .lte('translated_at', endStr)
         .order('translated_at', { ascending: true })
         .range(from, from + 999);
       if (error || !data || data.length === 0) break;
