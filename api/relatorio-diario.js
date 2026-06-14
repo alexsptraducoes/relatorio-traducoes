@@ -23,10 +23,9 @@ module.exports = async function handler(req, res) {
     }
 
     const [y, m, d] = targetDate.split('-').map(Number);
-    // Start: midnight Brazil = 03:00 UTC
-    const startUTC = new Date(Date.UTC(y, m-1, d, 3, 0, 0)).toISOString();
-    // End: 23:59:59 Brazil = next day 02:59:59 UTC
-    const endUTC = new Date(Date.UTC(y, m-1, d+1, 2, 59, 59)).toISOString();
+    // Try both: stored as local time (no UTC offset)
+    const startUTC = `${targetDate}T00:00:00`;
+    const endUTC = `${targetDate}T23:59:59`;
 
     // Fetch all translations with pagination
     let translations = [];
@@ -47,7 +46,7 @@ module.exports = async function handler(req, res) {
 
     if (translations.length === 0) {
       return res.status(200).json({ 
-        message: `Sem traduções em ${targetDate} (busca UTC: ${startUTC} → ${endUTC})` 
+        message: `Sem traduções em ${targetDate}` 
       });
     }
 
