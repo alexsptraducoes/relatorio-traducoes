@@ -10,10 +10,16 @@ module.exports = async function handler(req, res) {
   try {
     const supa = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Get today in São Paulo timezone
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-    const startDate = `${hoje}T00:00:00`;
-    const endDate = `${hoje}T23:59:59`;
+    // Get target date - use 'date' query param for testing, otherwise today
+    let targetDate;
+    if (req.query && req.query.date) {
+      targetDate = req.query.date;
+    } else {
+      targetDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    }
+
+    const startDate = `${targetDate}T00:00:00`;
+    const endDate = `${targetDate}T23:59:59`;
 
     // Fetch all translations of the day with pagination
     let translations = [];
@@ -33,7 +39,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (translations.length === 0) {
-      return res.status(200).json({ message: 'Sem traduções hoje, e-mail não enviado.' });
+      return res.status(200).json({ message: `Sem traduções em ${targetDate}, e-mail não enviado.` });
     }
 
     // Group by collaborator
@@ -49,9 +55,10 @@ module.exports = async function handler(req, res) {
       byUser[name].totalFiles++;
     });
 
-    // Build HTML email
-    const dataFormatada = new Date().toLocaleDateString('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
+    // Format date for display
+    const [y, m, d] = targetDate.split('-');
+    const dateObj = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+    const dataFormatada = dateObj.toLocaleDateString('pt-BR', {
       weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
     });
 
@@ -111,53 +118,48 @@ module.exports = async function handler(req, res) {
           </div>`;
       });
 
-    const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"></head>
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
 <body style="font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;margin:0;padding:0">
   <div style="max-width:700px;margin:0 auto;padding:20px">
-
-    <!-- Header -->
     <div style="background:#1a237e;color:white;padding:24px 28px;border-radius:8px 8px 0 0;text-align:center">
       <div style="font-size:22px;font-weight:700;letter-spacing:1px">SP TRADUÇÕES</div>
       <div style="font-size:13px;opacity:0.8;margin-top:4px">Relatório Diário de Produção</div>
       <div style="font-size:16px;margin-top:8px;font-weight:500">${dataFormatada}</div>
     </div>
-
-    <!-- Resumo Geral -->
     <div style="background:white;padding:20px 28px;border-left:1px solid #e0e0e0;border-right:1px solid #e0e0e0">
-      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-        <div style="text-align:center;background:#e8eaf6;padding:16px 24px;border-radius:8px;min-width:120px">
-          <div style="font-size:28px;font-weight:700;color:#1a237e">${totalGeralFiles}</div>
-          <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Arquivos</div>
-        </div>
-        <div style="text-align:center;background:#e8eaf6;padding:16px 24px;border-radius:8px;min-width:120px">
-          <div style="font-size:28px;font-weight:700;color:#1a237e">${totalGeralWords.toLocaleString('pt-BR')}</div>
-          <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Palavras</div>
-        </div>
-        <div style="text-align:center;background:#1a237e;padding:16px 24px;border-radius:8px;min-width:120px">
-          <div style="font-size:28px;font-weight:700;color:white">${totalGeralLaudas}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px">Laudas Totais</div>
-        </div>
-      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <tr>
+          <td style="text-align:center;padding:12px">
+            <div style="background:#e8eaf6;padding:16px 24px;border-radius:8px;display:inline-block">
+              <div style="font-size:28px;font-weight:700;color:#1a237e">${totalGeralFiles}</div>
+              <div style="font-size:11px;color:#666;text-transform:uppercase;margin-top:4px">Arquivos</div>
+            </div>
+          </td>
+          <td style="text-align:center;padding:12px">
+            <div style="background:#e8eaf6;padding:16px 24px;border-radius:8px;display:inline-block">
+              <div style="font-size:28px;font-weight:700;color:#1a237e">${totalGeralWords.toLocaleString('pt-BR')}</div>
+              <div style="font-size:11px;color:#666;text-transform:uppercase;margin-top:4px">Palavras</div>
+            </div>
+          </td>
+          <td style="text-align:center;padding:12px">
+            <div style="background:#1a237e;padding:16px 24px;border-radius:8px;display:inline-block">
+              <div style="font-size:28px;font-weight:700;color:white">${totalGeralLaudas}</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-top:4px">Laudas Totais</div>
+            </div>
+          </td>
+        </tr>
+      </table>
     </div>
-
-    <!-- Tabelas por colaborador -->
     <div style="background:#f9f9f9;padding:20px 28px;border:1px solid #e0e0e0;border-top:none">
       ${tabelasColaboradores}
     </div>
-
-    <!-- Footer -->
     <div style="background:#1a237e;color:rgba(255,255,255,0.6);padding:14px 28px;border-radius:0 0 8px 8px;text-align:center;font-size:11px">
-      SP Traduções · Relatório gerado automaticamente às 19h · ${dataFormatada}
+      SP Traduções · Relatório gerado automaticamente · ${dataFormatada}
     </div>
-
   </div>
-</body>
-</html>`;
+</body></html>`;
 
-    // Send email via Resend
     const emailResp = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -167,20 +169,18 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         from: EMAIL_FROM,
         to: EMAIL_TO,
-        subject: `📊 Relatório de Produção — ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+        subject: `📊 Relatório de Produção — ${d}/${m}/${y}`,
         html
       })
     });
 
     const emailData = await emailResp.json();
-
-    if (!emailResp.ok) {
-      throw new Error(`Resend error: ${JSON.stringify(emailData)}`);
-    }
+    if (!emailResp.ok) throw new Error(`Resend error: ${JSON.stringify(emailData)}`);
 
     return res.status(200).json({
       success: true,
       message: `E-mail enviado para ${EMAIL_TO}`,
+      data: targetDate,
       traducoes: translations.length,
       colaboradores: Object.keys(byUser).length
     });
