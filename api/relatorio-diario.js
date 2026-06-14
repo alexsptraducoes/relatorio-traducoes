@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = 'https://skfuzicygdjmlpxquejt.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrZnV6aWN5Z2RqbWxweHF1ZWp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0OTAxODUsImV4cCI6MjA5MDA2NjE4NX0.EOvxHUd8TazpJv0Iw0eEc2VYdxIdJ4dnFqCcYKTG6fo';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrZnV6aWN5Z2RqbWxweHF1ZWp0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDQ5MDE4NSwiZXhwIjoyMDkwMDY2MTg1fQ.B4emmB2aTIWzVypCDII3090L88qdHS5tJArMbS6h39Q';
 const RESEND_KEY = 're_6JHyMiQA_FAPJnBfBwfq7xrSgSvjDjnee';
 const EMAIL_TO = 'alex@sptraducoes.com.br';
 const EMAIL_FROM = 'relatorio@sptraducoes.com.br';
