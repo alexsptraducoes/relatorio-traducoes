@@ -1,0 +1,8 @@
+{
+  "name": "relatorio-traducoes",
+  "version": "1.0.0",
+  "description": "Relatório diário de produção SP Traduções",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
