@@ -3,35 +3,28 @@ const { createClient } = require('@supabase/supabase-js');
 const SUPABASE_URL = 'https://skfuzicygdjmlpxquejt.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrZnV6aWN5Z2RqbWxweHF1ZWp0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDQ5MDE4NSwiZXhwIjoyMDkwMDY2MTg1fQ.B4emmB2aTIWzVypCDII3090L88qdHS5tJArMbS6h39Q';
 const RESEND_KEY = 're_6JHyMiQA_FAPJnBfBwfq7xrSgSvjDjnee';
-const EMAIL_TO = 'alex@sptraducoes.com.br';
+const EMAIL_TO = ['alex@sptraducoes.com.br', 'projetos@sptraducoes.com.br'];
 const EMAIL_FROM = 'relatorio@sptraducoes.com.br';
 
 module.exports = async function handler(req, res) {
   try {
     const supa = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Brazil is UTC-3
-    // To get "today in Brazil", we need UTC+3h window
-    // e.g. 2026-06-12 in Brazil = 2026-06-12T03:00:00Z to 2026-06-13T03:00:00Z in UTC
-
     let targetDate;
     if (req.query && req.query.date) {
-      targetDate = req.query.date; // YYYY-MM-DD in Brazil time
+      targetDate = req.query.date;
     } else {
-      // Get current date in Brazil
       targetDate = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     }
 
     const [y, m, d] = targetDate.split('-').map(Number);
-    // Data salva em UTC. Brasil = UTC-3
-    // Para pegar dia 12/06 SP: buscar de 12/06 00:00 SP = 12/06 03:00 UTC
-    //                          até 12/06 23:59 SP = 13/06 02:59 UTC
-    const startUTC = new Date(Date.UTC(y, m-1, d, 3, 0, 0));
-    const endUTC = new Date(Date.UTC(y, m-1, d+1, 2, 59, 59));
-    const startStr = startUTC.toISOString();
-    const endStr = endUTC.toISOString();
+    const startStr = new Date(Date.UTC(y, m-1, d, 3, 0, 0)).toISOString();
+    const endStr = new Date(Date.UTC(y, m-1, d+1, 2, 59, 59)).toISOString();
 
-    // Fetch all translations with pagination
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', {
+      timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'
+    });
+
     let translations = [];
     let from = 0;
     while (true) {
@@ -49,17 +42,14 @@ module.exports = async function handler(req, res) {
     }
 
     if (translations.length === 0) {
-      return res.status(200).json({ 
-        message: `Sem traduções em ${targetDate}` 
-      });
+      return res.status(200).json({ message: `Sem traducoes em ${targetDate}` });
     }
 
-    // Group by collaborator
     const byUser = {};
     translations.forEach(t => {
       const name = t.users?.name || '?';
       if (!byUser[name]) byUser[name] = { refs: {}, totalWords: 0, totalFiles: 0 };
-      const ref = t.reference || 'Sem referência';
+      const ref = t.reference || 'Sem referencia';
       if (!byUser[name].refs[ref]) byUser[name].refs[ref] = { files: 0, words: 0 };
       byUser[name].refs[ref].files++;
       byUser[name].refs[ref].words += parseInt(t.word_count) || 0;
@@ -77,108 +67,81 @@ module.exports = async function handler(req, res) {
     const totalGeralLaudas = (totalGeralWords / 180).toFixed(2);
 
     let tabelasColaboradores = '';
-    Object.entries(byUser)
-      .sort((a, b) => b[1].totalFiles - a[1].totalFiles)
-      .forEach(([name, data]) => {
-        const laudasTotal = (data.totalWords / 180).toFixed(2);
-        const refs = Object.entries(data.refs).sort((a, b) => b[1].files - a[1].files);
+    Object.entries(byUser).sort((a, b) => b[1].totalFiles - a[1].totalFiles).forEach(([name, data]) => {
+      const laudasTotal = (data.totalWords / 180).toFixed(2);
+      const refs = Object.entries(data.refs).sort((a, b) => b[1].files - a[1].files);
+      const linhasRefs = refs.map(([ref, r]) => {
+        const laudas = (r.words / 180).toFixed(2);
+        return `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0"><span style="background:#1a237e;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-family:monospace">${ref}</span></td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${r.files}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${r.words.toLocaleString('pt-BR')}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center"><span style="background:#e8eaf6;color:#1a237e;padding:2px 8px;border-radius:4px;font-weight:600">${laudas}</span></td>
+        </tr>`;
+      }).join('');
 
-        const linhasRefs = refs.map(([ref, r]) => {
-          const laudas = (r.words / 180).toFixed(2);
-          return `<tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">
-              <span style="background:#1a237e;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-family:monospace">${ref}</span>
-            </td>
-            <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${r.files}</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${r.words.toLocaleString('pt-BR')}</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">
-              <span style="background:#e8eaf6;color:#1a237e;padding:2px 8px;border-radius:4px;font-weight:600">${laudas}</span>
-            </td>
-          </tr>`;
-        }).join('');
+      tabelasColaboradores += `
+      <div style="margin-bottom:28px">
+        <div style="background:#1a237e;color:white;padding:10px 16px;border-radius:6px 6px 0 0">
+          <span style="font-weight:700;font-size:15px">👤 ${name}</span>
+          <span style="font-size:12px;opacity:0.8;float:right">${data.totalFiles} arquivos · ${laudasTotal} laudas</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;background:white;border:1px solid #e0e0e0;border-top:none">
+          <thead><tr style="background:#f5f5f5">
+            <th style="padding:8px 12px;text-align:left;font-size:11px;color:#666;text-transform:uppercase">Referencia</th>
+            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#666;text-transform:uppercase">Arquivos</th>
+            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#666;text-transform:uppercase">Palavras</th>
+            <th style="padding:8px 12px;text-align:center;font-size:11px;color:#666;text-transform:uppercase">Laudas</th>
+          </tr></thead>
+          <tbody>${linhasRefs}</tbody>
+          <tfoot><tr style="background:#e8eaf6;font-weight:700">
+            <td style="padding:8px 12px;color:#1a237e">TOTAL ATE AGORA</td>
+            <td style="padding:8px 12px;text-align:center;color:#1a237e">${data.totalFiles}</td>
+            <td style="padding:8px 12px;text-align:center;color:#1a237e">${data.totalWords.toLocaleString('pt-BR')}</td>
+            <td style="padding:8px 12px;text-align:center"><span style="background:#1a237e;color:white;padding:2px 10px;border-radius:4px;font-weight:700">${laudasTotal}</span></td>
+          </tr></tfoot>
+        </table>
+      </div>`;
+    });
 
-        tabelasColaboradores += `
-        <div style="margin-bottom:28px">
-          <div style="background:#1a237e;color:white;padding:10px 16px;border-radius:6px 6px 0 0">
-            <span style="font-weight:700;font-size:15px">👤 ${name}</span>
-            <span style="font-size:12px;opacity:0.8;float:right">${data.totalFiles} arquivos · ${laudasTotal} laudas</span>
-          </div>
-          <table style="width:100%;border-collapse:collapse;background:white;border:1px solid #e0e0e0;border-top:none">
-            <thead>
-              <tr style="background:#f5f5f5">
-                <th style="padding:8px 12px;text-align:left;font-size:11px;color:#666;text-transform:uppercase">Referência</th>
-                <th style="padding:8px 12px;text-align:center;font-size:11px;color:#666;text-transform:uppercase">Arquivos</th>
-                <th style="padding:8px 12px;text-align:center;font-size:11px;color:#666;text-transform:uppercase">Palavras</th>
-                <th style="padding:8px 12px;text-align:center;font-size:11px;color:#666;text-transform:uppercase">Laudas</th>
-              </tr>
-            </thead>
-            <tbody>${linhasRefs}</tbody>
-            <tfoot>
-              <tr style="background:#e8eaf6;font-weight:700">
-                <td style="padding:8px 12px;color:#1a237e">TOTAL DO DIA</td>
-                <td style="padding:8px 12px;text-align:center;color:#1a237e">${data.totalFiles}</td>
-                <td style="padding:8px 12px;text-align:center;color:#1a237e">${data.totalWords.toLocaleString('pt-BR')}</td>
-                <td style="padding:8px 12px;text-align:center">
-                  <span style="background:#1a237e;color:white;padding:2px 10px;border-radius:4px;font-weight:700">${laudasTotal}</span>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>`;
-      });
-
-    const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px">
   <div style="max-width:700px;margin:0 auto">
     <div style="background:#1a237e;color:white;padding:24px 28px;border-radius:8px 8px 0 0;text-align:center">
-      <div style="font-size:22px;font-weight:700;letter-spacing:1px">SP TRADUÇÕES</div>
-      <div style="font-size:13px;opacity:0.8;margin-top:4px">Relatório Diário de Produção</div>
+      <div style="font-size:22px;font-weight:700">SP TRADUCOES</div>
+      <div style="font-size:13px;opacity:0.8;margin-top:4px">Relatorio de Producao - ${horaAtual}</div>
       <div style="font-size:16px;margin-top:8px;font-weight:500">${dataFormatada}</div>
     </div>
     <div style="background:white;padding:20px 28px;border:1px solid #e0e0e0;border-top:none;text-align:center">
-      <table style="width:100%;border-collapse:collapse">
-        <tr>
-          <td style="padding:8px">
-            <div style="background:#e8eaf6;padding:16px;border-radius:8px">
-              <div style="font-size:28px;font-weight:700;color:#1a237e">${totalGeralFiles}</div>
-              <div style="font-size:11px;color:#666;text-transform:uppercase;margin-top:4px">Arquivos</div>
-            </div>
-          </td>
-          <td style="padding:8px">
-            <div style="background:#e8eaf6;padding:16px;border-radius:8px">
-              <div style="font-size:28px;font-weight:700;color:#1a237e">${totalGeralWords.toLocaleString('pt-BR')}</div>
-              <div style="font-size:11px;color:#666;text-transform:uppercase;margin-top:4px">Palavras</div>
-            </div>
-          </td>
-          <td style="padding:8px">
-            <div style="background:#1a237e;padding:16px;border-radius:8px">
-              <div style="font-size:28px;font-weight:700;color:white">${totalGeralLaudas}</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-top:4px">Laudas Totais</div>
-            </div>
-          </td>
-        </tr>
-      </table>
+      <table style="width:100%;border-collapse:collapse"><tr>
+        <td style="padding:8px"><div style="background:#e8eaf6;padding:16px;border-radius:8px">
+          <div style="font-size:28px;font-weight:700;color:#1a237e">${totalGeralFiles}</div>
+          <div style="font-size:11px;color:#666;text-transform:uppercase;margin-top:4px">Arquivos</div>
+        </div></td>
+        <td style="padding:8px"><div style="background:#e8eaf6;padding:16px;border-radius:8px">
+          <div style="font-size:28px;font-weight:700;color:#1a237e">${totalGeralWords.toLocaleString('pt-BR')}</div>
+          <div style="font-size:11px;color:#666;text-transform:uppercase;margin-top:4px">Palavras</div>
+        </div></td>
+        <td style="padding:8px"><div style="background:#1a237e;padding:16px;border-radius:8px">
+          <div style="font-size:28px;font-weight:700;color:white">${totalGeralLaudas}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-top:4px">Laudas Totais</div>
+        </div></td>
+      </tr></table>
     </div>
-    <div style="background:#f9f9f9;padding:20px 28px;border:1px solid #e0e0e0;border-top:none">
-      ${tabelasColaboradores}
-    </div>
+    <div style="background:#f9f9f9;padding:20px 28px;border:1px solid #e0e0e0;border-top:none">${tabelasColaboradores}</div>
     <div style="background:#1a237e;color:rgba(255,255,255,0.6);padding:14px 28px;border-radius:0 0 8px 8px;text-align:center;font-size:11px">
-      SP Traduções · Relatório gerado automaticamente · ${dataFormatada}
+      SP Traducoes - Relatorio gerado as ${horaAtual} - ${dataFormatada}
     </div>
   </div>
 </body></html>`;
 
     const emailResp = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_KEY}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: EMAIL_FROM,
         to: EMAIL_TO,
-        subject: `📊 Relatório de Produção — ${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`,
+        subject: `Producao ${horaAtual} - ${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`,
         html
       })
     });
@@ -188,8 +151,8 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: `E-mail enviado para ${EMAIL_TO}`,
-      data: targetDate,
+      message: `E-mail enviado para ${EMAIL_TO.join(' e ')}`,
+      horario: horaAtual,
       traducoes: translations.length,
       colaboradores: Object.keys(byUser).length
     });
