@@ -2,7 +2,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = 'https://skfuzicygdjmlpxquejt.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrZnV6aWN5Z2RqbWxweHF1ZWp0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDQ5MDE4NSwiZXhwIjoyMDkwMDY2MTg1fQ.B4emmB2aTIWzVypCDII3090L88qdHS5tJArMbS6h39Q';
-const RESEND_KEY = 're_iWNkcis3_Mo4bhEzD3xP7CtRsvEL9NL9s';
+const RESEND_KEY = process.env.RESEND_KEY;
 const EMAIL_TO = ['alex@sptraducoes.com.br', 'projetos@sptraducoes.com.br'];
 const EMAIL_FROM = 'relatorio@sptraducoes.com.br';
 
