@@ -1,8 +1,8 @@
 {
   "crons": [
-    {
-      "path": "/api/relatorio-diario",
-      "schedule": "0 22 * * *"
-    }
+    { "path": "/api/relatorio-diario", "schedule": "0 14 * * *" },
+    { "path": "/api/relatorio-diario", "schedule": "0 17 * * *" },
+    { "path": "/api/relatorio-diario", "schedule": "0 19 * * *" },
+    { "path": "/api/relatorio-diario", "schedule": "0 22 * * *" }
   ]
 }
